@@ -19,26 +19,13 @@ from mtcnn_detector import MtcnnDetector
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src', 'common'))
 import face_image
 import face_preprocess
+from utils import get_model
 
 
 def do_flip(data):
   for idx in range(data.shape[0]):
     data[idx,:,:] = np.fliplr(data[idx,:,:])
 
-def get_model(ctx, image_size, model_str, layer):
-  _vec = model_str.split(',')
-  assert len(_vec)==2
-  prefix = _vec[0]
-  epoch = int(_vec[1])
-  print('loading',prefix, epoch)
-  sym, arg_params, aux_params = mx.model.load_checkpoint(prefix, epoch)
-  all_layers = sym.get_internals()
-  sym = all_layers[layer+'_output']
-  model = mx.mod.Module(symbol=sym, context=ctx, label_names = None)
-  #model.bind(data_shapes=[('data', (args.batch_size, 3, image_size[0], image_size[1]))], label_shapes=[('softmax_label', (args.batch_size,))])
-  model.bind(data_shapes=[('data', (1, 3, image_size[0], image_size[1]))])
-  model.set_params(arg_params, aux_params)
-  return model
 
 class FaceModel:
   def __init__(self, args):
@@ -68,19 +55,25 @@ class FaceModel:
 
 
   def get_input(self, face_img):
+    print('Input shape: {}'.format(face_img.shape))
     ret = self.detector.detect_face(face_img, det_type = self.args.det)
     if ret is None:
       return None
+    # print('MTCNN return: {}'.format(ret))
     bbox, points = ret
     if bbox.shape[0]==0:
       return None
     bbox = bbox[0,0:4]
     points = points[0,:].reshape((2,5)).T
-    #print(bbox)
-    #print(points)
+    # print(bbox)
+    # print(points)
+    
     nimg = face_preprocess.preprocess(face_img, bbox, points, image_size='112,112')
-    nimg = cv2.cvtColor(nimg, cv2.COLOR_BGR2RGB)
+    # nimg = cv2.cvtColor(nimg, cv2.COLOR_BGR2RGB)
+    # cv2.imshow('window', nimg)
+    # cv2.waitKey(0)
     aligned = np.transpose(nimg, (2,0,1))
+    
     return aligned
 
   def get_feature(self, aligned):
